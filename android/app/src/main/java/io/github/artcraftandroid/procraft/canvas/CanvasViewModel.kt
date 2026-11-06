@@ -1043,10 +1043,11 @@ class CanvasViewModel(app: Application) : AndroidViewModel(app) {
         fitInside = interfacePrefs.getBoolean(FIT_INSIDE, false)
         timeLapseDisabled = interfacePrefs.getBoolean(NO_TIME_LAPSE, false)
         // the interface's size (Help › Advanced settings › Interface Size): the native canvas draws its handles and grid by it too
-        val uiScale = io.github.artcraftandroid.procraft.ui.UiScale.effective(app)
+        val application = getApplication<Application>()
+        val uiScale = io.github.artcraftandroid.procraft.ui.UiScale.effective(application)
         if (uiScale != io.github.artcraftandroid.procraft.ui.Pc.uiScale) {
             io.github.artcraftandroid.procraft.ui.Pc.uiScale = uiScale
-            density = app.resources.displayMetrics.density * uiScale
+            density = application.resources.displayMetrics.density * uiScale
             session?.setDisplayScale(density)
             pad?.setDisplayScale(density)
         }
