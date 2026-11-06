@@ -1,0 +1,138 @@
+package io.github.artcraftandroid.procraft.ui
+
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.em
+import kotlin.math.roundToInt
+
+/** Touches leave no ripple: the controls show presses in their own ways, or not at all. */
+private object NoIndication : androidx.compose.foundation.IndicationNodeFactory {
+    override fun create(interactionSource: androidx.compose.foundation.interaction.InteractionSource): androidx.compose.ui.node.DelegatableNode =
+        object : androidx.compose.ui.Modifier.Node() {}
+
+    override fun hashCode(): Int = -1
+
+    override fun equals(other: Any?): Boolean = other === this
+}
+
+/** Letter spacing that brings the bundled face to the measured text widths (over 18–24 pt labels). */
+private const val TRACKING = -0.045f
+
+/**
+ * The app's theme: Inter (bundled in `assets/fonts`, OFL) for all text, with natural line heights
+ * and no font padding, so text sits where the measured labels do. Interface text keeps its size
+ * whatever the system font scale: sp equal dp inside the theme.
+ */
+@Composable
+fun ProCraftTheme(content: @Composable () -> Unit) {
+    val assets = LocalContext.current.assets
+    val text = remember(assets) {
+        val family = FontFamily(
+            Font("fonts/Inter-Regular.ttf", assets, FontWeight.Normal),
+            Font("fonts/Inter-Medium.ttf", assets, FontWeight.Medium),
+            Font("fonts/Inter-SemiBold.ttf", assets, FontWeight.SemiBold),
+            Font("fonts/Inter-Bold.ttf", assets, FontWeight.Bold),
+        )
+        TextStyle(fontFamily = family, letterSpacing = TRACKING.em, platformStyle = PlatformTextStyle(includeFontPadding = false))
+    }
+    val typography = remember(text) {
+        val t = Typography()
+        Typography(
+            displayLarge = t.displayLarge.merge(text),
+            displayMedium = t.displayMedium.merge(text),
+            displaySmall = t.displaySmall.merge(text),
+            headlineLarge = t.headlineLarge.merge(text),
+            headlineMedium = t.headlineMedium.merge(text),
+            headlineSmall = t.headlineSmall.merge(text),
+            titleLarge = t.titleLarge.merge(text),
+            titleMedium = t.titleMedium.merge(text),
+            titleSmall = t.titleSmall.merge(text),
+            bodyLarge = t.bodyLarge.merge(text),
+            bodyMedium = t.bodyMedium.merge(text),
+            bodySmall = t.bodySmall.merge(text),
+            labelLarge = t.labelLarge.merge(text),
+            labelMedium = t.labelMedium.merge(text),
+            labelSmall = t.labelSmall.merge(text),
+        )
+    }
+    MaterialTheme(colorScheme = darkColorScheme(primary = Pc.Accent), typography = typography) {
+        // the interface is laid out in dp drawn for tablets: on a smaller screen it is scaled down
+        // as a whole (density and the dp sizes the screen reports), see UiScale
+        val scale = Pc.uiScale
+        val system = LocalDensity.current
+        val config = LocalConfiguration.current
+        val density = remember(system.density, scale) { Density(system.density * scale, 1f) }
+        val scaledConfig = remember(config, scale) {
+            if (scale == 1f) config else Configuration(config).apply {
+                screenWidthDp = (config.screenWidthDp / scale).roundToInt()
+                screenHeightDp = (config.screenHeightDp / scale).roundToInt()
+                smallestScreenWidthDp = (config.smallestScreenWidthDp / scale).roundToInt()
+                densityDpi = (config.densityDpi * scale).roundToInt()
+            }
+        }
+        CompositionLocalProvider(
+            LocalDensity provides density,
+            LocalConfiguration provides scaledConfig,
+            LocalTextStyle provides text,
+            androidx.compose.foundation.LocalIndication provides NoIndication,
+            content = content,
+        )
+    }
+}
+
+/**
+ * The text scale the popups made before [PcPopup] were matched at: they ran at
+ * the Legion's system font scale (0.85) then, so their sizes are set for it. Kept for them, now
+ * on any device.
+ */
+const val MATCHED_POPUP_TEXT = 0.85f
+
+/**
+ * A popup whose text keeps one size whatever the system font scale. A popup is a window of its
+ * own, composed with the system's font scale, so its text followed it where the rest of the
+ * interface doesn't; this hands it the theme's density, its text scaled by [textScale].
+ */
+@Composable
+fun PcPopup(
+    alignment: androidx.compose.ui.Alignment = androidx.compose.ui.Alignment.TopStart,
+    offset: androidx.compose.ui.unit.IntOffset = androidx.compose.ui.unit.IntOffset(0, 0),
+    onDismissRequest: (() -> Unit)? = null,
+    properties: androidx.compose.ui.window.PopupProperties = androidx.compose.ui.window.PopupProperties(),
+    textScale: Float = 1f,
+    content: @Composable () -> Unit,
+) {
+    val density = Density(LocalDensity.current.density, textScale)
+    androidx.compose.ui.window.Popup(alignment, offset, onDismissRequest, properties) {
+        CompositionLocalProvider(LocalDensity provides density, content = content)
+    }
+}
+
+/** [PcPopup] placed by a [popupPositionProvider]. */
+@Composable
+fun PcPopup(
+    popupPositionProvider: androidx.compose.ui.window.PopupPositionProvider,
+    onDismissRequest: (() -> Unit)? = null,
+    properties: androidx.compose.ui.window.PopupProperties = androidx.compose.ui.window.PopupProperties(),
+    textScale: Float = 1f,
+    content: @Composable () -> Unit,
+) {
+    val density = Density(LocalDensity.current.density, textScale)
+    androidx.compose.ui.window.Popup(popupPositionProvider, onDismissRequest, properties) {
+        CompositionLocalProvider(LocalDensity provides density, content = content)
+    }
+}
