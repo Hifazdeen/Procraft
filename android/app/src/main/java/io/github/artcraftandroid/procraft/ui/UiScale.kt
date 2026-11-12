@@ -3,6 +3,11 @@ package io.github.artcraftandroid.procraft.ui
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.DisplayMetrics
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import kotlin.math.min
 
 /**
@@ -44,4 +49,26 @@ object UiScale {
 
     /** Pixels to a dp as the interface now measures it (what the native canvas draws its handles and grid by). */
     fun density(context: Context): Float = context.resources.displayMetrics.density * Pc.uiScale
+
+    /** The preference (in "interface") for the phone layout: absent, it is on where the screen is a phone's. */
+    const val POCKET_KEY = "pocket_ui"
+
+    /** Whether the screen is a phone's: under 600 dp across its shorter side. */
+    fun pocketDefault(context: Context): Boolean = context.resources.configuration.smallestScreenWidthDp < 600
+
+    /** Whether the phone layout is on. */
+    fun pocket(context: Context): Boolean =
+        context.getSharedPreferences("interface", Context.MODE_PRIVATE).getBoolean(POCKET_KEY, pocketDefault(context))
+}
+
+/**
+ * Draws [content] in the system's dp, not the interface's scaled ones ([ProCraftTheme] shrinks the
+ * tablet screens for a phone): the phone's own top bar and sheets are drawn for a finger as they are.
+ */
+@Composable
+fun Unscaled(content: @Composable () -> Unit) {
+    val scaled = LocalDensity.current
+    val scale = Pc.uiScale
+    val system = remember(scaled.density, scale) { Density(scaled.density / scale, 1f) }
+    CompositionLocalProvider(LocalDensity provides system, content = content)
 }

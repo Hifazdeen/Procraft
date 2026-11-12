@@ -1044,6 +1044,8 @@ class CanvasViewModel(app: Application) : AndroidViewModel(app) {
         timeLapseDisabled = interfacePrefs.getBoolean(NO_TIME_LAPSE, false)
         // the interface's size (Help › Advanced settings › Interface Size): the native canvas draws its handles and grid by it too
         val application = getApplication<Application>()
+        // the phone layout (Procraft Pocket), on where the screen is a phone's unless turned off
+        io.github.artcraftandroid.procraft.ui.Pc.pocket = io.github.artcraftandroid.procraft.ui.UiScale.pocket(application)
         val uiScale = io.github.artcraftandroid.procraft.ui.UiScale.effective(application)
         if (uiScale != io.github.artcraftandroid.procraft.ui.Pc.uiScale) {
             io.github.artcraftandroid.procraft.ui.Pc.uiScale = uiScale

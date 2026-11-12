@@ -77,6 +77,12 @@ fun rememberFrost(corner: Dp): Modifier {
 }
 
 
+/**
+ * The width of the bottom sheet the panels are shown as (the phone layout): a popover then has no
+ * arrow and is this wide. Null: panels hang from their buttons.
+ */
+val LocalSheet = staticCompositionLocalOf<Dp?> { null }
+
 /** The side of a popover its arrow sticks out of, pointing at its button; or none. */
 enum class ArrowSide { TOP, BOTTOM, LEFT, RIGHT, NONE }
 
@@ -88,6 +94,24 @@ enum class ArrowSide { TOP, BOTTOM, LEFT, RIGHT, NONE }
  */
 @Composable
 fun Popover(
+    width: Dp,
+    arrowX: Dp,
+    modifier: Modifier = Modifier,
+    fill: Color? = null,
+    corner: Dp = Pc.PopoverCorner,
+    side: ArrowSide = ArrowSide.TOP,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val sheet = LocalSheet.current
+    if (sheet == null) {
+        PopoverBody(width, arrowX, modifier, fill, corner, side, content)
+    } else {
+        PopoverBody(sheet, 0.dp, modifier, fill, corner, ArrowSide.NONE, content)
+    }
+}
+
+@Composable
+private fun PopoverBody(
     width: Dp,
     arrowX: Dp,
     modifier: Modifier = Modifier,

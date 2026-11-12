@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
         hideSystemBars()
         // made here, not inside the flow's read-only snapshot, where its setup can't write state
         val model = vm
+        io.github.artcraftandroid.procraft.ui.Pc.pocket = io.github.artcraftandroid.procraft.ui.UiScale.pocket(this)
         io.github.artcraftandroid.procraft.ui.Pc.uiScale = io.github.artcraftandroid.procraft.ui.UiScale.effective(this)
         setContent { AppRoot(model) }
         lifecycleScope.launch { snapshotFlow { model.projectCanvas }.collect { showProjection() } }

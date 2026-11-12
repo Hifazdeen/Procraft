@@ -16,6 +16,12 @@ object Pc {
     /** How much the interface is scaled from the system's dp (see [UiScale]); 1 on a tablet. */
     var uiScale by mutableFloatStateOf(1f)
 
+    /** The phone layout (Procraft Pocket) is on: see [UiScale.pocket]. */
+    var pocket by mutableStateOf(false)
+
+    /** The phone top bar's height, in the system's dp (it is drawn unscaled: see [Unscaled]). */
+    val PocketBarHeight = 56.dp
+
     /** A colour for the interface as it is now: [dark], or [light] when the light interface is on. */
     private fun pick(dark: Long, light: Long) = Color(if (this.light) light else dark)
 
@@ -39,7 +45,8 @@ object Pc {
     val ActionDisc: Color get() = pick(0xFF141414, 0xFFEDEDED)
     val ActionGlyph: Color get() = pick(0xFF969696, 0xFF646464)
     val ColorRing: Color get() = pick(0xFF969696, 0xFF696969)
-    val BarHeight = 44.dp
+    /** The top bar's height in the interface's dp: the pocket bar is drawn in the system's, so it is shorter in these. */
+    val BarHeight: Dp get() = if (pocket) PocketBarHeight / uiScale else 44.dp
     val BarMargin = 40.dp
     val BarButtonWidth = 44.dp
     val BarButtonHeight = 38.dp

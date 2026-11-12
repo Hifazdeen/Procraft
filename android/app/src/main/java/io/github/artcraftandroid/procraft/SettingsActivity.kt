@@ -119,6 +119,13 @@ private fun SettingsScreen(prefs: android.content.SharedPreferences, onDone: () 
             // the interface's size, for phones: first, as it is the setting a small screen needs
             Text("INTERFACE SIZE", color = Dim, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 6.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Group)) { InterfaceSizeRow(prefs) }
+            // the phone layout: on for a phone's screen unless turned off
+            Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(12.dp)).background(Group)) {
+                ToggleRow(
+                    prefs,
+                    Toggle(UiScale.POCKET_KEY, "Pocket Layout", "Large round buttons and panels that rise from the bottom, for a phone. Off: the tablet layout.", UiScale.pocketDefault(LocalContext.current)),
+                )
+            }
             for ((heading, rows) in Groups) {
                 Text(heading.uppercase(), color = Dim, fontSize = 13.sp, modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 6.dp))
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Group)) {

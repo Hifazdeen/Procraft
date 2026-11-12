@@ -17,7 +17,13 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -453,5 +459,120 @@ fun BrushCursor(vm: CanvasViewModel) {
                 else -> contrast()
             }
         }
+    }
+}
+
+/**
+ * The phone's top bar (Procraft Pocket), drawn in the system's dp for a finger: back to the gallery
+ * and Modify on the left, the painting tools and the colour on the right, each a large round
+ * button. Modify opens a row under the bar of the artwork's actions (Actions, Adjustments,
+ * Selection, Transform).
+ */
+@Composable
+fun PocketTopBar(vm: CanvasViewModel, modifier: Modifier = Modifier) {
+    var modify by remember { mutableStateOf(false) }
+    // a tool taking the screen, or a bar of its own under this one, closes the row
+    val busy = vm.adjustment != null || vm.selecting || vm.transforming || vm.opacityLayer != null || vm.recoloring
+    LaunchedEffect(busy) { if (busy) modify = false }
+    Column(modifier.fillMaxWidth()) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(Pc.PocketBarHeight).background(Pc.Bar)) {
+            // five buttons share what the left side leaves, as wide as 56, as narrow as 40
+            val button = ((maxWidth - PocketBackWidth - PocketModifyWidth - 12.dp) / 5).coerceIn(40.dp, 56.dp)
+            val panelOpen = vm.panel == Panel.LAYERS || vm.panel == Panel.COLOR || vm.transforming || vm.selecting || vm.adjustment != null
+            Row(Modifier.fillMaxSize().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(PocketBackWidth, 48.dp).tap { vm.closeArtwork() }, contentAlignment = Alignment.Center) {
+                    Icon(PcIcons.ChevronLeft, contentDescription = "Gallery", tint = Pc.BarGlyph, modifier = Modifier.size(30.dp))
+                }
+                Box(Modifier.size(PocketModifyWidth, 48.dp).tap { modify = !modify }, contentAlignment = Alignment.CenterStart) {
+                    Text(
+                        "Modify",
+                        color = lerp(Pc.BarText, Pc.BarGlyphSelected, animateHighlight(modify)),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                PocketTool(
+                    if (vm.adjustPencil) PcIcons.BrushPaintedOn else PcIcons.Brush, "Paint", button,
+                    selected = vm.adjustPencil || (!panelOpen && vm.tool == ToolKind.PAINT),
+                    onHold = { vm.toolHeld(ToolKind.PAINT) },
+                ) { vm.toolPressed(ToolKind.PAINT) }
+                PocketTool(PcIcons.Smudge, "Smudge", button, selected = !panelOpen && vm.tool == ToolKind.SMUDGE, onHold = { vm.toolHeld(ToolKind.SMUDGE) }) {
+                    vm.toolPressed(ToolKind.SMUDGE)
+                }
+                PocketTool(PcIcons.Erase, "Erase", button, selected = !panelOpen && vm.tool == ToolKind.ERASE, onHold = { vm.toolHeld(ToolKind.ERASE) }) {
+                    vm.toolPressed(ToolKind.ERASE)
+                }
+                PocketTool(PcIcons.Layers, "Layers", button, selected = vm.panel == Panel.LAYERS) { vm.toggle(Panel.LAYERS) }
+                PocketColor(vm, button)
+            }
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = modify,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(expandFrom = Alignment.Top),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top),
+        ) {
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Pc.Bar).padding(top = 4.dp, bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                ModifyItem(PcIcons.Actions, "Actions", vm.panel == Panel.ACTIONS, 40.dp) {
+                    modify = false
+                    vm.toggle(Panel.ACTIONS)
+                }
+                ModifyItem(PcIcons.Adjustments, "Adjust", vm.panel == Panel.ADJUSTMENTS, 40.dp) {
+                    modify = false
+                    vm.adjustmentsPressed()
+                }
+                ModifyItem(PcIcons.Selection, "Select", vm.selecting, 37.dp) {
+                    modify = false
+                    vm.toggleSelecting()
+                }
+                ModifyItem(PcIcons.Transform, "Transform", vm.transforming, 48.dp) {
+                    modify = false
+                    vm.toggleTransform()
+                }
+            }
+        }
+    }
+}
+
+private val PocketBackWidth = 40.dp
+private val PocketModifyWidth = 76.dp
+
+/** A phone tool button: a large glyph that sits in a round highlight, blue while the tool is in use. */
+@Composable
+private fun PocketTool(icon: ImageVector, label: String, width: Dp, selected: Boolean, onHold: (() -> Unit)? = null, onClick: () -> Unit) {
+    val lit = animateHighlight(selected)
+    val touch = if (onHold != null) Modifier.tapOrHold(onClick, onHold) else Modifier.tap(onClick = onClick)
+    Box(Modifier.size(width, 48.dp).then(touch), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(44.dp).clip(CircleShape).background(Pc.BarGlyphSelected.copy(alpha = 0.22f * lit)))
+        Icon(icon, contentDescription = label, tint = lerp(Pc.BarGlyph, Pc.BarGlyphSelected, lit), modifier = Modifier.requiredSize(40.dp))
+    }
+}
+
+/** The colour: its dot, large, ringed where it would fade into the bar; held, the colour before; dragged out, it fills. */
+@Composable
+private fun PocketColor(vm: CanvasViewModel, width: Dp) {
+    val rgb = vm.colorRgb()
+    val ringed = if (Pc.light) vm.brightness > LIGHT_RING_ABOVE else vm.brightness < DARK_RING_BELOW
+    Box(Modifier.size(width, 48.dp).dropSource(vm, onHold = { vm.previousColor() }) { vm.toggle(Panel.COLOR) }, contentAlignment = Alignment.Center) {
+        val dot = Modifier.size(36.dp).clip(CircleShape).background(CanvasSpace.color(rgb))
+        Box(if (ringed) dot.border(1.5.dp, Pc.ColorRing, CircleShape) else dot)
+    }
+}
+
+/** One of the Modify row's actions: a round disc with its glyph, and its name under it. */
+@Composable
+private fun ModifyItem(icon: ImageVector, label: String, selected: Boolean, glyph: Dp, onClick: () -> Unit) {
+    val lit = animateHighlight(selected)
+    Column(Modifier.width(76.dp).tap(onClick = onClick), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(lerp(Pc.ActionDisc, Pc.BarGlyphSelected, lit)))
+            Icon(icon, contentDescription = label, tint = lerp(Pc.ActionGlyph, Color.White, lit), modifier = Modifier.requiredSize(glyph))
+        }
+        Text(label, color = Pc.BarText, fontSize = 12.sp, maxLines = 1, softWrap = false)
     }
 }

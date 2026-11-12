@@ -136,7 +136,12 @@ fun AppRoot(vm: CanvasViewModel) {
                     val fade = Modifier.graphicsLayer { alpha = barsShown }
                     val up = Modifier.graphicsLayer { translationY = -size.height * (1f - barsShown) }
                     val aside = Modifier.graphicsLayer { translationX = size.width * (1f - barsShown) * if (vm.rightHanded) 1f else -1f }
-                    TopBar(vm, Modifier.align(Alignment.TopCenter).then(up).then(fade))
+                    if (Pc.pocket) {
+                        // the phone's bar is drawn in the system's dp, as it is for a finger
+                        Unscaled { PocketTopBar(vm, Modifier.align(Alignment.TopCenter).then(up).then(fade)) }
+                    } else {
+                        TopBar(vm, Modifier.align(Alignment.TopCenter).then(up).then(fade))
+                    }
                     // a mode taking the screen slides it off its edge, and back when it ends
                     androidx.compose.animation.AnimatedVisibility(
                         vm.showSideBar && !vm.transforming && !vm.selecting && !vm.guideEditing && !vm.lightingStudioOpen && vm.cropRect == null && vm.textInfo == null &&
@@ -180,22 +185,51 @@ fun AppRoot(vm: CanvasViewModel) {
                         scaleY = scale
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(place.arrowX / width, 0f)
                     }
-                    ProvidePanelLook(PanelLook(alpha, scale, pivot)) {
+                    // on a phone the panels are sheets rising from the bottom edge, in the system's dp
+                    val sheet = Pc.pocket
+                    val k = Pc.uiScale
+                    val panelAt = if (sheet) {
+                        Modifier.graphicsLayer {
+                            this.alpha = alpha
+                            translationY = (1f - alpha) * 56.dp.toPx()
+                        }
+                    } else {
+                        at
+                    }
+                    val arrow = if (sheet) 0.dp else place.arrowX
+                    val screenHeight = if (sheet) maxHeight * k else maxHeight
+                    val room = if (sheet) maxHeight * k * 0.74f else maxHeight - Pc.BarHeight - 25.dp
+                    val layersRoom = if (sheet) room else maxHeight - Pc.BarHeight - Pc.PopoverGap
+                    val body: @Composable () -> Unit = {
                         when (shown) {
                             Panel.LAYERS -> if (vm.backgroundPicking) {
-                                ColorPanel(vm, place.arrowX, maxHeight, at, background = true)
+                                ColorPanel(vm, arrow, screenHeight, panelAt, background = true)
                                 // closed any way at all, the colour is kept
                                 androidx.compose.runtime.DisposableEffect(Unit) { onDispose { vm.endBackgroundPick() } }
                             } else {
-                                LayersPanel(vm, place.arrowX, at.heightIn(max = maxHeight - Pc.BarHeight - Pc.PopoverGap))
+                                LayersPanel(vm, arrow, panelAt.heightIn(max = layersRoom))
                             }
-                            Panel.COLOR -> ColorPanel(vm, place.arrowX, maxHeight, at)
-                            Panel.BRUSHES -> BrushLibrary(vm, place.arrowX, at.height(maxHeight - Pc.BarHeight - 25.dp))
+                            Panel.COLOR -> ColorPanel(vm, arrow, screenHeight, panelAt)
+                            Panel.BRUSHES -> BrushLibrary(vm, arrow, panelAt.height(room))
                             // ending 25 above the screen's edge, their rows scrolling (as measured)
-                            Panel.ACTIONS -> ActionsPanel(vm, place.arrowX, at.heightIn(max = maxHeight - Pc.BarHeight - 25.dp))
-                            Panel.ADJUSTMENTS -> AdjustmentsPanel(vm, place.arrowX, at.heightIn(max = maxHeight - Pc.BarHeight - 25.dp))
+                            Panel.ACTIONS -> ActionsPanel(vm, arrow, panelAt.heightIn(max = room))
+                            Panel.ADJUSTMENTS -> AdjustmentsPanel(vm, arrow, panelAt.heightIn(max = room))
                             Panel.NONE -> Unit
                         }
+                    }
+                    if (sheet) {
+                        val sheetWidth = (maxWidth * k - 16.dp).coerceAtMost(480.dp)
+                        ProvidePanelLook(PanelLook(alpha, 1f, androidx.compose.ui.geometry.Offset.Zero)) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                                Unscaled {
+                                    CompositionLocalProvider(LocalSheet provides sheetWidth) {
+                                        Box(Modifier.padding(bottom = 10.dp)) { body() }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        ProvidePanelLook(PanelLook(alpha, scale, pivot)) { body() }
                     }
                 }
                 // the colour panel dragged out by its grabber: a window over the canvas until closed
