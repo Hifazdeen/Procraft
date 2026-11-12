@@ -2368,20 +2368,6 @@ class CanvasViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    /**
-     * S-Pen button clicked in the air (remote Air action on Samsung Galaxy Note/Ultra devices):
-     * toggles between Paint and Erase by default.
-     */
-    fun handleStylusAirButton(): Boolean {
-        if (screen != Screen.CANVAS || session == null) return false
-        if (tool == ToolKind.ERASE) {
-            select(ToolKind.PAINT)
-        } else {
-            select(ToolKind.ERASE)
-        }
-        return true
-    }
-
     /** Does [a], a QuickMenu button opened at window point [at]. */
     fun runQuickAction(a: QuickAction, at: Offset) {
         val current = layers.firstOrNull { it.current }

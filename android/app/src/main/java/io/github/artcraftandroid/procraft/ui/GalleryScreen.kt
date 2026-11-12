@@ -126,10 +126,22 @@ private val NewCanvasWidth = 347.dp
 /** How long an artwork can take to open before the gallery says it is opening. */
 private const val SLOW_OPENING_MS = 500L
 
-/** The gallery: every artwork as a thumbnail; + makes a new canvas. */
-@OptIn(ExperimentalFoundationApi::class)
+/** The gallery: every artwork as a thumbnail; + makes a new canvas. On a phone it is drawn in the system's dp. */
 @Composable
 fun GalleryScreen(vm: CanvasViewModel) {
+    if (Pc.pocket) Unscaled { GalleryScreenBody(vm) } else GalleryScreenBody(vm)
+}
+
+/** How many columns of artworks: three upright and four on its side; on a phone two and three. */
+private fun galleryColumns(width: Dp, height: Dp): Int = if (Pc.pocket) {
+    if (width > height) 3 else 2
+} else {
+    if (width > height) 4 else 3
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun GalleryScreenBody(vm: CanvasViewModel) {
     var newCanvas by remember { mutableStateOf(false) }
     // where each stack's cell is (window pixels), for its artworks to fly out of as it opens
     val stackCellAt = remember { mutableMapOf<String, androidx.compose.ui.geometry.Rect>() }
@@ -186,7 +198,7 @@ fun GalleryScreen(vm: CanvasViewModel) {
             if (renaming != null || renamingStack != null || about) tween(300) else tween(150),
             label = "blur",
         )
-        val dropCell = cellSize(screenWidth, if (screenWidth > screenHeight) 4 else 3)
+        val dropCell = cellSize(screenWidth, galleryColumns(screenWidth, screenHeight))
         Column(
             Modifier.fillMaxSize().then(if (blur > 0.dp) Modifier.blur(blur) else Modifier).then(
                 galleryDrop(
@@ -269,7 +281,7 @@ fun GalleryScreen(vm: CanvasViewModel) {
                         Text("Tap + to start a new canvas", color = Pc.GalleryText, fontSize = 17.sp)
                     }
                 } else {
-                    val columns = if (screenWidth > screenHeight) 4 else 3
+                    val columns = galleryColumns(screenWidth, screenHeight)
                     val cell = cellSize(screenWidth, columns)
                     androidx.compose.runtime.CompositionLocalProvider(LocalCell provides cell) {
                     // the whole screen under the header, so artworks flying in from a stack lower down
@@ -286,7 +298,8 @@ fun GalleryScreen(vm: CanvasViewModel) {
                         },
                         state = grid,
                         columns = GridCells.Fixed(columns),
-                        contentPadding = PaddingValues(bottom = 24.dp),
+                        // on a phone the artworks scroll clear of the floating bar
+                        contentPadding = PaddingValues(bottom = if (Pc.pocket) 120.dp else 24.dp),
                     ) {
                         items(entries, key = { it.dir.name }) { entry ->
                             if (entry is io.github.artcraftandroid.procraft.gallery.Stack) {
@@ -493,13 +506,47 @@ fun GalleryScreen(vm: CanvasViewModel) {
             }
         }
 
+        // on a phone: select, import, photo and new canvas in a floating bar along the bottom edge
+        if (Pc.pocket) {
+            val any = selected.isNotEmpty()
+            PocketGalleryBar(
+                selecting = selecting,
+                actions = listOf(
+                    PocketAction("Stack", vm.openStack == null && selected.size >= 2) {
+                        vm.stackArtworks(picked())
+                        endSelecting()
+                    },
+                    PocketAction("Preview", any) { previewing = picked() },
+                    PocketAction("Share", any) { sharing = GalleryShare(picked(), null) },
+                    PocketAction("Duplicate", any) {
+                        picked().forEach(vm::duplicateArtwork)
+                        endSelecting()
+                    },
+                    PocketAction("Delete", any) { deletingSelected = true },
+                ),
+                onSelect = { selecting = true },
+                onImport = { importFile.launch(arrayOf("*/*")) },
+                onPhoto = { photo.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onNew = { newCanvas = !newCanvas },
+                onDone = ::endSelecting,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
         if (newCanvas) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { newCanvas = false } })
         // hangs from the + button, 2 dp from the screen's edge, and grows out of its arrow
         val newLeft = maxWidth - 2.dp - NewCanvasWidth
         val newArrow = maxWidth - 49.dp - newLeft
+        // on a phone it is a sheet above the floating bar, as wide as the screen allows
+        val newWidth = (maxWidth - 16.dp).coerceAtMost(NewCanvasWidth)
+        val newAt = if (Pc.pocket) {
+            Modifier.offset(x = (maxWidth - newWidth) / 2, y = (maxHeight - 620.dp).coerceAtLeast(6.dp))
+        } else {
+            Modifier.offset(x = newLeft, y = 56.5.dp)
+        }
+        androidx.compose.runtime.CompositionLocalProvider(LocalSheet provides (if (Pc.pocket) newWidth else null)) {
         MenuPresence(newCanvas, androidx.compose.ui.graphics.TransformOrigin(newArrow / NewCanvasWidth, 0f)) { look ->
             NewCanvasPanel(
-                Modifier.offset(x = newLeft, y = 56.5.dp).then(look), arrowX = newArrow, presets = vm.canvasPresets,
+                newAt.then(look), arrowX = newArrow, presets = vm.canvasPresets,
                 // Custom Canvas opens over the list, which is still there when it closes
                 onCustom = { vm.openCustomCanvas() },
                 onEdit = { vm.openCustomCanvas(it) },
@@ -512,6 +559,7 @@ fun GalleryScreen(vm: CanvasViewModel) {
                 newCanvas = false
                 vm.newArtwork(w, h)
             }
+        }
         }
         if (moreOpen) Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { moreOpen = false } })
         // under More, kept 4 from the screen's edge
@@ -733,7 +781,7 @@ private fun GalleryHeader(
                 )
             }
         }
-        Row(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!Pc.pocket) Row(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
                 Modifier.height(45.dp).clip(CircleShape).background(Pc.Capsule).border(1.dp, Pc.CapsuleEdge, CircleShape),
                 verticalAlignment = Alignment.CenterVertically,
@@ -794,7 +842,7 @@ private fun SelectHeader(
     }
     Box(Modifier.fillMaxWidth().height(55.dp)) {
         Text(title, color = Pc.GalleryTitle, fontSize = 36.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 32.dp, top = 11.dp))
-        Row(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!Pc.pocket) Row(Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.height(45.dp).clip(CircleShape).background(Pc.Capsule).border(1.dp, Pc.CapsuleEdge, CircleShape), verticalAlignment = Alignment.CenterVertically) {
                 for (a in actions) {
                     Box(Modifier.width(a.width).height(45.dp).clickable(enabled = a.enabled, onClick = a.onClick), contentAlignment = Alignment.Center) {

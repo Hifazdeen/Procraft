@@ -10,13 +10,11 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -145,21 +143,15 @@ fun AppRoot(vm: CanvasViewModel) {
                         TopBar(vm, Modifier.align(Alignment.TopCenter).then(up).then(fade))
                     }
                     // a mode taking the screen slides it off its edge, and back when it ends
-                    val sideBarHeight = if (Pc.pocket) PocketSideBarHeight else Pc.SideBarHeight
-                    val sideBarEdgePadding = if (Pc.pocket) Modifier.padding(horizontal = 8.dp) else Modifier
                     androidx.compose.animation.AnimatedVisibility(
                         vm.showSideBar && !vm.transforming && !vm.selecting && !vm.guideEditing && !vm.lightingStudioOpen && vm.cropRect == null && vm.textInfo == null &&
                             vm.opacityLayer == null &&
                             (vm.adjustment == null || vm.adjustPencil),
-                        Modifier.align(if (vm.rightHanded) Alignment.TopEnd else Alignment.TopStart).offset(y = maxHeight * Pc.SIDE_BAR_CENTRE - sideBarHeight / 2).then(sideBarEdgePadding),
+                        Modifier.align(if (vm.rightHanded) Alignment.TopEnd else Alignment.TopStart).offset(y = maxHeight * Pc.SIDE_BAR_CENTRE - Pc.SideBarHeight / 2),
                         enter = Motion.sideBarIn(vm.rightHanded),
                         exit = Motion.sideBarOut(vm.rightHanded),
                     ) {
-                        if (Pc.pocket) {
-                            PocketSideBar(vm, aside.then(fade), right = vm.rightHanded)
-                        } else {
-                            SideBar(vm, aside.then(fade), right = vm.rightHanded)
-                        }
+                        SideBar(vm, aside.then(fade), right = vm.rightHanded)
                     }
                 }
                 NoticeBand(vm)
@@ -199,14 +191,17 @@ fun AppRoot(vm: CanvasViewModel) {
                     val panelAt = if (sheet) {
                         Modifier.graphicsLayer {
                             this.alpha = alpha
-                            translationY = (1f - alpha) * 220.dp.toPx()
+                            translationY = (1f - alpha) * 56.dp.toPx()
                         }
                     } else {
                         at
                     }
                     val arrow = if (sheet) 0.dp else place.arrowX
                     val screenHeight = if (sheet) maxHeight * k else maxHeight
-                    val room = if (sheet) maxHeight * k * 0.78f else maxHeight - Pc.BarHeight - 25.dp
+                    // a sheet's stop (small, ordinary, tall) is kept while it stays open
+                    val stop = androidx.compose.runtime.remember(shown) { androidx.compose.runtime.mutableIntStateOf(1) }
+                    val roomTarget = if (sheet) maxHeight * k * SheetStops[stop.intValue] else maxHeight - Pc.BarHeight - 25.dp
+                    val room = androidx.compose.animation.core.animateDpAsState(targetValue = roomTarget).value
                     val layersRoom = if (sheet) room else maxHeight - Pc.BarHeight - Pc.PopoverGap
                     val body: @Composable () -> Unit = {
                         when (shown) {
@@ -231,16 +226,11 @@ fun AppRoot(vm: CanvasViewModel) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
                                 Unscaled {
                                     CompositionLocalProvider(LocalSheet provides sheetWidth) {
-                                        Box(
-                                            Modifier.navigationBarsPadding().padding(bottom = 8.dp)
-                                                .pointerInput(Unit) {
-                                                    detectVerticalDragGestures { _, dragAmount ->
-                                                        if (dragAmount > 20f) {
-                                                            vm.closePanels()
-                                                        }
-                                                    }
-                                                }
+                                        androidx.compose.foundation.layout.Column(
+                                            Modifier.padding(bottom = 10.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
                                         ) {
+                                            SheetHandle(stop.intValue, { stop.intValue = it }, { vm.toggle(shown) }, sheetWidth)
                                             body()
                                         }
                                     }

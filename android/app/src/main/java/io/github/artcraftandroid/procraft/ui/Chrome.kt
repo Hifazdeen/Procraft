@@ -1,7 +1,6 @@
 package io.github.artcraftandroid.procraft.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
@@ -19,6 +18,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -236,9 +237,10 @@ fun SideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean =
 }
 
 @Composable
-private fun SideButton(icon: ImageVector, label: String, enabled: Boolean, modifier: Modifier, glyphSize: Dp = 36.dp, onClick: () -> Unit) {
-    Box(modifier.tap(enabled, onClick), contentAlignment = Alignment.Center) {
-        Icon(icon, contentDescription = label, tint = if (enabled) Pc.SideGlyph else Pc.SideGlyphDisabled, modifier = Modifier.requiredSize(glyphSize))
+private fun SideButton(icon: ImageVector, label: String, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(modifier.size(40.dp, 41.dp).tap(enabled, onClick), contentAlignment = Alignment.Center) {
+        // a 50 frame shown 36 across
+        Icon(icon, contentDescription = label, tint = if (enabled) Pc.SideGlyph else Pc.SideGlyphDisabled, modifier = Modifier.requiredSize(36.dp))
     }
 }
 
@@ -253,7 +255,7 @@ private fun panel(vm: CanvasViewModel, which: CanvasViewModel.SliderPanel) = Sli
     hide = { if (!vm.sliderPanelKept) vm.sliderPanel = null },
 )
 
-private val SliderPanelSide get() = if (Pc.pocket) 130.dp else 190.dp
+private val SliderPanelSide = 190.dp
 private val SliderPanelGap = 8.dp
 private val SliderPanelRise = 10.dp
 // dark glass over the canvas (what is behind it blurred), or light
@@ -272,17 +274,18 @@ private fun SliderPanel(vm: CanvasViewModel, which: CanvasViewModel.SliderPanel,
     val size = which == CanvasViewModel.SliderPanel.SIZE
     val value = if (size) vm.size else vm.opacity
     val diameter = androidx.compose.runtime.remember(vm.size) { vm.brushScreenDiameter() }
+    // the brush's stamp as it paints (soft where it is soft), as many pixels across as it shows
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val panelSide = SliderPanelSide
-    val radius = with(density) { (diameter / 2f).coerceIn(1.5f, panelSide.toPx() / 2f - 8.dp.toPx()) }
+    val radius = with(density) { (diameter / 2f).coerceIn(1.5f, SliderPanelSide.toPx() / 2f - 8.dp.toPx()) }
     val side = (radius * 2f).roundToInt().coerceAtLeast(2)
     val stamp = androidx.compose.runtime.remember(vm.size, side) { vm.brushStamp(side) }
-    val cornerRadius = if (Pc.pocket) 18.dp else 22.dp
+    // its own size, past the bar's edge (the bar's width would otherwise squeeze it)
     Box(
-        modifier.wrapContentSize(Alignment.TopStart, unbounded = true).size(panelSide)
-            .then(if (Pc.light) Modifier else rememberFrost(cornerRadius))
-            .clip(RoundedCornerShape(cornerRadius)).background(SliderPanelFill)
-            .border(1.dp, Pc.GlassMenuEdge, RoundedCornerShape(cornerRadius)),
+        modifier.wrapContentSize(Alignment.TopStart, unbounded = true).size(SliderPanelSide)
+            .then(if (Pc.light) Modifier else rememberFrost(22.dp))
+            .clip(RoundedCornerShape(22.dp)).background(SliderPanelFill)
+            // a hairline rim, as measured (about 25 over the glass)
+            .border(1.dp, Pc.GlassMenuEdge, RoundedCornerShape(22.dp)),
     ) {
         Text(
             androidx.compose.ui.text.buildAnnotatedString {
@@ -292,19 +295,18 @@ private fun SliderPanel(vm: CanvasViewModel, which: CanvasViewModel.SliderPanel,
                 append(" ${(value * 100f).roundToInt()}%")
             },
             color = SliderPanelInk,
-            fontSize = if (Pc.pocket) 15.sp else 19.sp,
+            fontSize = 19.sp,
             maxLines = 1,
-            modifier = Modifier.offset(if (Pc.pocket) 12.dp else 16.dp, 6.dp).height(32.dp).wrapContentHeight(Alignment.CenterVertically),
+            modifier = Modifier.offset(16.dp, 6.dp).height(32.dp).wrapContentHeight(Alignment.CenterVertically),
         )
         val onNotch = vm.notchAt(size, value) != null
         if (onNotch || vm.canSaveNotch(size)) {
-            val notchOffset = if (Pc.pocket) panelSide - 36.dp else 150.dp
-            Box(Modifier.offset(notchOffset, 6.dp).size(32.dp).tap { vm.toggleNotch(size) }, contentAlignment = Alignment.Center) {
+            Box(Modifier.offset(150.dp, 6.dp).size(32.dp).tap { vm.toggleNotch(size) }, contentAlignment = Alignment.Center) {
                 Icon(
                     if (onNotch) PcIcons.NotchRemove else PcIcons.NotchAdd,
                     contentDescription = if (onNotch) "Remove" else "Save",
                     tint = SliderPanelInk,
-                    modifier = Modifier.size(if (Pc.pocket) 20.dp else 24.dp),
+                    modifier = Modifier.size(24.dp),
                 )
             }
         }
@@ -330,29 +332,18 @@ private fun SliderPanel(vm: CanvasViewModel, which: CanvasViewModel.SliderPanel,
  * it, and a tap on one goes there. On a notch, the thumb shows a blue bar.
  */
 @Composable
-fun BrushSlider(
-    value: Float,
-    onChange: (Float) -> Unit,
-    modifier: Modifier = Modifier,
-    panel: SliderPanelHooks? = null,
-    notches: List<Float> = emptyList(),
-    width: Dp = Pc.SliderWidth,
-    height: Dp = Pc.SliderHeight,
-    thumbWidth: Dp = Pc.ThumbWidth,
-    thumbHeight: Dp = Pc.ThumbHeight,
-    thumbInset: Dp = Pc.ThumbInset,
-    corner: Dp = Pc.SliderCorner,
-) {
+fun BrushSlider(value: Float, onChange: (Float) -> Unit, modifier: Modifier = Modifier, panel: SliderPanelHooks? = null, notches: List<Float> = emptyList()) {
     val current by rememberUpdatedState(value)
     val change by rememberUpdatedState(onChange)
     val hooks by rememberUpdatedState(panel)
     val marks by rememberUpdatedState(notches)
+    val haptics = LocalHapticFeedback.current
     fun near(v: Float, reach: Float = CanvasViewModel.NOTCH_NEAR) =
         marks.filter { kotlin.math.abs(it - v) < reach }.minByOrNull { kotlin.math.abs(it - v) }
     Box(
-        modifier.size(width, height)
+        modifier.size(Pc.SliderWidth, Pc.SliderHeight)
             .pointerInput(Unit) {
-                val travel = (height - thumbHeight - thumbInset * 2).toPx()
+                val travel = (Pc.SliderHeight - Pc.ThumbHeight - Pc.ThumbInset * 2).toPx()
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     down.consume()
@@ -361,6 +352,8 @@ fun BrushSlider(
                     var lifted = false
                     // where the finger has taken it, before a notch pulls it in
                     var raw = current
+                    // the notch it last settled on, for a tick as it enters another
+                    var lastNotch: Float? = null
                     // follows the finger; false once it is lifted
                     suspend fun AwaitPointerEventScope.follow(): Boolean {
                         val c = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
@@ -370,8 +363,14 @@ fun BrushSlider(
                             if (!moved) hooks?.show(false)
                             moved = true
                             last = c.position.y
-                            raw = (raw - dy / travel).coerceIn(0f, 1f)
-                            change(near(raw) ?: raw)
+                            // the further the finger is from the slider sideways, the finer its steps
+                            val reach = (kotlin.math.abs(c.position.x - size.width / 2f) - size.width / 2f).coerceAtLeast(0f)
+                            val fine = 1f / (1f + reach / FineReach.toPx())
+                            raw = (raw - dy / travel * fine).coerceIn(0f, 1f)
+                            val settled = near(raw)
+                            if (settled != null && settled != lastNotch) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            lastNotch = settled
+                            change(settled ?: raw)
                         }
                         c.consume()
                         return true
@@ -382,22 +381,24 @@ fun BrushSlider(
                     if (!lifted && !moved) hooks?.show(true)
                     // a tap on a notch's mark goes to it
                     if (lifted && !moved) {
-                        val inset = thumbInset.toPx()
-                        val at = 1f - (down.position.y - inset - thumbHeight.toPx() / 2f) / travel
-                        near(at, thumbHeight.toPx() / 2f / travel)?.let { change(it) }
+                        val inset = Pc.ThumbInset.toPx()
+                        val at = 1f - (down.position.y - inset - Pc.ThumbHeight.toPx() / 2f) / travel
+                        near(at, Pc.ThumbHeight.toPx() / 2f / travel)?.let { change(it) }
                     }
                     while (!lifted) lifted = !follow()
                     if (moved) hooks?.hide()
                 }
             }
             .drawBehind {
-                val inset = thumbInset.toPx()
-                val thumb = Size(thumbWidth.toPx(), thumbHeight.toPx())
+                val inset = Pc.ThumbInset.toPx()
+                val thumb = Size(Pc.ThumbWidth.toPx(), Pc.ThumbHeight.toPx())
                 val at = Offset((size.width - thumb.width) / 2f, inset + (size.height - thumb.height - inset * 2) * (1f - value))
                 val knob = RoundRect(at.x, at.y, at.x + thumb.width, at.y + thumb.height, CornerRadius(thumb.height / 2f))
-                val r = corner.toPx()
+                // the track has a window where the thumb is, so the thumb shows over the bar alone;
+                // a lighter rim runs round it
+                val corner = Pc.SliderCorner.toPx()
                 val rim = Pc.SliderRimWidth.toPx()
-                val inside = RoundRect(rim, rim, size.width - rim, size.height - rim, CornerRadius(r - rim))
+                val inside = RoundRect(rim, rim, size.width - rim, size.height - rim, CornerRadius(corner - rim))
                 val track = Path().apply {
                     fillType = PathFillType.EvenOdd
                     addRoundRect(inside)
@@ -406,13 +407,12 @@ fun BrushSlider(
                 drawPath(track, Pc.SliderTrack)
                 val ring = Path().apply {
                     fillType = PathFillType.EvenOdd
-                    addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(r)))
+                    addRoundRect(RoundRect(0f, 0f, size.width, size.height, CornerRadius(corner)))
                     addRoundRect(inside)
                 }
                 drawPath(ring, Pc.SliderRim)
                 // the notches: short bars across the track; on one, the thumb shows a blue bar
-                val notchW = if (width < Pc.SliderWidth) 14.dp else NotchWidth
-                val bar = Size(notchW.toPx(), NotchHeight.toPx())
+                val bar = Size(NotchWidth.toPx(), NotchHeight.toPx())
                 val travel = size.height - thumb.height - inset * 2
                 for (n in notches) {
                     val y = inset + thumb.height / 2f + travel * (1f - n)
@@ -473,109 +473,6 @@ fun BrushCursor(vm: CanvasViewModel) {
     }
 }
 
-val PocketSideBarWidth = 44.dp
-val PocketSideBarHeight = 286.dp
-val PocketSideBarCorner = 18.dp
-
-private val PocketSliderLeft = 6.dp
-private val PocketSliderWidth = 32.dp
-private val PocketSliderHeight = 84.dp
-private val PocketSizeTrackTop = 8.dp
-private val PocketModifyTop = 100.dp
-private val PocketOpacityTrackTop = 140.dp
-private val PocketUndoTop = 230.dp
-private val PocketRedoTop = 258.dp
-
-/**
- * The compact phone sidebar (Procraft Pocket): brush size, modify button, opacity, undo and redo,
- * sized ergonomically for single-thumb control on a phone screen (and fitting in landscape on Note 10+).
- */
-@Composable
-fun PocketSideBar(vm: CanvasViewModel, modifier: Modifier = Modifier, right: Boolean = false) {
-    fun x(left: Dp, width: Dp) = if (right) PocketSideBarWidth - left - width else left
-    Box(
-        modifier.size(PocketSideBarWidth, PocketSideBarHeight)
-            .drawBehind {
-                val r = PocketSideBarCorner.toPx()
-                val track = Size(PocketSliderWidth.toPx(), PocketSliderHeight.toPx())
-                val trackR = CornerRadius(10.dp.toPx())
-                val body = Path().apply {
-                    fillType = PathFillType.EvenOdd
-                    val (inner, outer) = CornerRadius.Zero to CornerRadius(r)
-                    addRoundRect(
-                        if (right) RoundRect(0f, 0f, size.width, size.height, outer, inner, inner, outer)
-                        else RoundRect(0f, 0f, size.width, size.height, inner, outer, outer, inner),
-                    )
-                    for (top in listOf(PocketSizeTrackTop, PocketOpacityTrackTop)) {
-                        val o = Offset(x(PocketSliderLeft, PocketSliderWidth).toPx(), top.toPx())
-                        addRoundRect(RoundRect(o.x, o.y, o.x + track.width, o.y + track.height, trackR))
-                    }
-                }
-                drawPath(body, Pc.SideBar)
-            },
-    ) {
-        BrushSlider(
-            vm.size,
-            vm::changeSize,
-            Modifier.offset(x(PocketSliderLeft, PocketSliderWidth), PocketSizeTrackTop),
-            panel(vm, CanvasViewModel.SliderPanel.SIZE),
-            vm.sizeNotches,
-            width = PocketSliderWidth,
-            height = PocketSliderHeight,
-            thumbWidth = 24.dp,
-            thumbHeight = 14.dp,
-            thumbInset = 3.dp,
-            corner = 10.dp,
-        )
-        // the modify button: square □ with blue glow when active
-        Box(
-            Modifier.offset(x(PocketSliderLeft, PocketSliderWidth), PocketModifyTop).size(PocketSliderWidth, 32.dp).pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown().consume()
-                    vm.modifyPressed()
-                    val up = waitForUpOrCancellation()
-                    up?.consume()
-                    vm.modifyReleased(cancelled = up == null)
-                }
-            },
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                Modifier.size(22.dp).drawBehind {
-                    val w = 2.2.dp.toPx()
-                    drawRoundRect(
-                        if (vm.pickNext) Pc.Accent else Pc.SideGlyph,
-                        topLeft = Offset(w / 2f, w / 2f),
-                        size = Size(size.width - w, size.height - w),
-                        cornerRadius = CornerRadius(5.dp.toPx() - w / 2f),
-                        style = Stroke(w),
-                    )
-                },
-            )
-        }
-        BrushSlider(
-            vm.opacity,
-            vm::changeOpacity,
-            Modifier.offset(x(PocketSliderLeft, PocketSliderWidth), PocketOpacityTrackTop),
-            panel(vm, CanvasViewModel.SliderPanel.OPACITY),
-            vm.opacityNotches,
-            width = PocketSliderWidth,
-            height = PocketSliderHeight,
-            thumbWidth = 24.dp,
-            thumbHeight = 14.dp,
-            thumbInset = 3.dp,
-            corner = 10.dp,
-        )
-        // beside the slider it belongs to
-        vm.sliderPanel?.let { which ->
-            val top = if (which == CanvasViewModel.SliderPanel.SIZE) PocketSizeTrackTop else PocketOpacityTrackTop
-            SliderPanel(vm, which, Modifier.offset(x(PocketSliderLeft + PocketSliderWidth + SliderPanelGap, SliderPanelSide), top - SliderPanelRise))
-        }
-        SideButton(PcIcons.Undo, "Undo", vm.canUndo, Modifier.offset(x(PocketSliderLeft, PocketSliderWidth), PocketUndoTop).size(PocketSliderWidth, 26.dp), glyphSize = 24.dp) { vm.undo() }
-        SideButton(PcIcons.Redo, "Redo", vm.canRedo, Modifier.offset(x(PocketSliderLeft, PocketSliderWidth), PocketRedoTop).size(PocketSliderWidth, 26.dp), glyphSize = 24.dp) { vm.redo() }
-    }
-}
-
 /**
  * The phone's top bar (Procraft Pocket), drawn in the system's dp for a finger: back to the gallery
  * and Modify on the left, the painting tools and the colour on the right, each a large round
@@ -588,42 +485,24 @@ fun PocketTopBar(vm: CanvasViewModel, modifier: Modifier = Modifier) {
     // a tool taking the screen, or a bar of its own under this one, closes the row
     val busy = vm.adjustment != null || vm.selecting || vm.transforming || vm.opacityLayer != null || vm.recoloring
     LaunchedEffect(busy) { if (busy) modify = false }
-    Column(modifier.fillMaxWidth().statusBarsPadding()) {
-        BoxWithConstraints(
-            Modifier.fillMaxWidth().height(Pc.PocketBarHeight).background(Pc.Bar)
-                .drawBehind {
-                    drawLine(Pc.Divider, Offset(0f, size.height), Offset(size.width, size.height), 1f)
-                }
-        ) {
+    Column(modifier.fillMaxWidth()) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(Pc.PocketBarHeight).background(Pc.Bar)) {
+            // five buttons share what the left side leaves, as wide as 56, as narrow as 40
             val button = ((maxWidth - PocketBackWidth - PocketModifyWidth - 12.dp) / 5).coerceIn(40.dp, 56.dp)
             val panelOpen = vm.panel == Panel.LAYERS || vm.panel == Panel.COLOR || vm.transforming || vm.selecting || vm.adjustment != null
             Row(Modifier.fillMaxSize().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(PocketBackWidth, 48.dp).tap { vm.closeArtwork() }, contentAlignment = Alignment.Center) {
-                    Icon(PcIcons.ChevronLeft, contentDescription = "Gallery", tint = Pc.BarGlyph, modifier = Modifier.size(28.dp))
+                    Icon(PcIcons.ChevronLeft, contentDescription = "Gallery", tint = Pc.BarGlyph, modifier = Modifier.size(30.dp))
                 }
-                Box(
-                    Modifier.height(36.dp).clip(RoundedCornerShape(18.dp))
-                        .background(if (modify) Pc.BarGlyphSelected.copy(alpha = 0.22f) else Color.Transparent)
-                        .padding(horizontal = 8.dp)
-                        .tap { modify = !modify },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "Modify",
-                            color = lerp(Pc.BarText, Pc.BarGlyphSelected, animateHighlight(modify)),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false,
-                        )
-                        Icon(
-                            if (modify) PcIcons.ChevronUp else PcIcons.ChevronDown,
-                            contentDescription = null,
-                            tint = lerp(Pc.BarText, Pc.BarGlyphSelected, animateHighlight(modify)),
-                            modifier = Modifier.padding(start = 2.dp).size(14.dp),
-                        )
-                    }
+                Box(Modifier.size(PocketModifyWidth, 48.dp).tap { modify = !modify }, contentAlignment = Alignment.CenterStart) {
+                    Text(
+                        "Modify",
+                        color = lerp(Pc.BarText, Pc.BarGlyphSelected, animateHighlight(modify)),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
                 }
                 Spacer(Modifier.weight(1f))
                 PocketTool(
@@ -647,27 +526,22 @@ fun PocketTopBar(vm: CanvasViewModel, modifier: Modifier = Modifier) {
             exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top),
         ) {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
-                    .background(Pc.Bar)
-                    .drawBehind {
-                        drawLine(Pc.Divider, Offset(0f, size.height), Offset(size.width, size.height), 1f)
-                    }
-                    .padding(top = 8.dp, bottom = 12.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Pc.Bar).padding(top = 4.dp, bottom = 10.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                ModifyItem(PcIcons.Actions, "Actions", vm.panel == Panel.ACTIONS, 38.dp) {
+                ModifyItem(PcIcons.Actions, "Actions", vm.panel == Panel.ACTIONS, 40.dp) {
                     modify = false
                     vm.toggle(Panel.ACTIONS)
                 }
-                ModifyItem(PcIcons.Adjustments, "Adjust", vm.panel == Panel.ADJUSTMENTS, 38.dp) {
+                ModifyItem(PcIcons.Adjustments, "Adjust", vm.panel == Panel.ADJUSTMENTS, 40.dp) {
                     modify = false
                     vm.adjustmentsPressed()
                 }
-                ModifyItem(PcIcons.Selection, "Select", vm.selecting, 34.dp) {
+                ModifyItem(PcIcons.Selection, "Select", vm.selecting, 37.dp) {
                     modify = false
                     vm.toggleSelecting()
                 }
-                ModifyItem(PcIcons.Transform, "Transform", vm.transforming, 44.dp) {
+                ModifyItem(PcIcons.Transform, "Transform", vm.transforming, 48.dp) {
                     modify = false
                     vm.toggleTransform()
                 }
@@ -676,14 +550,22 @@ fun PocketTopBar(vm: CanvasViewModel, modifier: Modifier = Modifier) {
     }
 }
 
+/** How far sideways from a slider a finger is when its steps are a half as big (Pocket's precise slider control). */
+private val FineReach = 56.dp
+
 private val PocketBackWidth = 40.dp
-private val PocketModifyWidth = 84.dp
+private val PocketModifyWidth = 76.dp
 
 /** A phone tool button: a large glyph that sits in a round highlight, blue while the tool is in use. */
 @Composable
 private fun PocketTool(icon: ImageVector, label: String, width: Dp, selected: Boolean, onHold: (() -> Unit)? = null, onClick: () -> Unit) {
     val lit = animateHighlight(selected)
-    val touch = if (onHold != null) Modifier.tapOrHold(onClick, onHold) else Modifier.tap(onClick = onClick)
+    val haptics = LocalHapticFeedback.current
+    val press = {
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        onClick()
+    }
+    val touch = if (onHold != null) Modifier.tapOrHold(press, onHold) else Modifier.tap(onClick = press)
     Box(Modifier.size(width, 48.dp).then(touch), contentAlignment = Alignment.Center) {
         Box(Modifier.size(44.dp).clip(CircleShape).background(Pc.BarGlyphSelected.copy(alpha = 0.22f * lit)))
         Icon(icon, contentDescription = label, tint = lerp(Pc.BarGlyph, Pc.BarGlyphSelected, lit), modifier = Modifier.requiredSize(40.dp))

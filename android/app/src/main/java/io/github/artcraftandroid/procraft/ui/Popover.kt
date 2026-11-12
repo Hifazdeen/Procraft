@@ -1,18 +1,12 @@
 package io.github.artcraftandroid.procraft.ui
 
 import android.graphics.BlurMaskFilter
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -112,12 +106,7 @@ fun Popover(
     if (sheet == null) {
         PopoverBody(width, arrowX, modifier, fill, corner, side, content)
     } else {
-        PopoverBody(sheet, 0.dp, modifier, fill, 24.dp, ArrowSide.NONE) {
-            Box(Modifier.fillMaxWidth().height(14.dp), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(36.dp, 4.5.dp).clip(CircleShape).background(Pc.Grabber))
-            }
-            content()
-        }
+        PopoverBody(sheet, 0.dp, modifier, fill, corner, ArrowSide.NONE, content)
     }
 }
 
