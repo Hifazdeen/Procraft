@@ -44,6 +44,10 @@ class MainActivity : ComponentActivity() {
         window.isNavigationBarContrastEnforced = false
         // wide colour, so a Display P3 canvas's colours show as they are around it too
         if (resources.configuration.isScreenWideColorGamut) window.colorMode = android.content.pm.ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode =
+                android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
         hideSystemBars()
         // made here, not inside the flow's read-only snapshot, where its setup can't write state
         val model = vm
@@ -149,8 +153,11 @@ class MainActivity : ComponentActivity() {
         return super.dispatchTouchEvent(e)
     }
 
-    /** A hardware keyboard's shortcuts on the canvas (keys no text field took). */
+    /** A hardware keyboard's shortcuts on the canvas (keys no text field took), or S-Pen air actions. */
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        if (keyCode == android.view.KeyEvent.KEYCODE_BUTTON_1 || keyCode == android.view.KeyEvent.KEYCODE_STYLUS_BUTTON_TAIL) {
+            if (event.repeatCount == 0 && vm.handleStylusAirButton()) return true
+        }
         if (event.repeatCount == 0 && vm.keyShortcut(keyCode, event.isCtrlPressed || event.isMetaPressed, event.isShiftPressed, event.isAltPressed)) return true
         return super.onKeyDown(keyCode, event)
     }

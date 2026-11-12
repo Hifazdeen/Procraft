@@ -90,7 +90,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private val LibraryWidth = 440.dp
-private val SetsWidth = 168.dp
+private val SetsWidth get() = if (Pc.pocket) 130.dp else 168.dp
 private val BrushHeight = 80.dp
 private val BrushGap = 8.dp
 /** The library's menus: dark glass with a light edge, rows 40 high. */

@@ -988,7 +988,11 @@ private class OptionsPlace(private val left: Int, private val rowY: Float, priva
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
         val bottom = (windowSize.height - popupContentSize.height + room).coerceAtLeast(top - room)
         val y = (rowY - popupContentSize.height / 2f).roundToInt().coerceIn(top - room, bottom)
-        return IntOffset(anchorBounds.left + left - room, y)
+        val minX = room
+        val maxX = (windowSize.width - popupContentSize.width - room).coerceAtLeast(minX)
+        val idealX = anchorBounds.left + left - room
+        val x = idealX.coerceIn(minX, maxX)
+        return IntOffset(x, y)
     }
 }
 
