@@ -35,6 +35,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -64,6 +67,10 @@ private val SwitchIdle get() = if (Pc.light) Color(0xFF3B3B3B) else Color(0xFFC1
 private val CapsuleFill get() = if (Pc.light) Color(0xFFFBFBFB) else Color(0xFF1A1A1A)
 private val CapsuleEdge get() = if (Pc.light) Color(0xFFE0E0E0) else Color(0xFF373737)
 private val DoneBlue = Color(0xFF0190FF)
+
+/** A row's height and its text: larger on a phone, for a finger. */
+private val RowHeight get() = if (Pc.pocket) 56.dp else 47.dp
+private val RowText get() = if (Pc.pocket) 17.sp else 15.sp
 
 /** Where the last row the keypad types into (DPI) ends, down from the top: the page's 120, two
  * rows and their line, 24 between the groups, one row. */
@@ -95,6 +102,12 @@ private val Sections = listOf(
  */
 @Composable
 fun CustomCanvasScreen(vm: CanvasViewModel, onMade: () -> Unit) {
+    // on a phone it is drawn in the system's dp
+    if (Pc.pocket) Unscaled { CustomCanvasBody(vm, onMade) } else CustomCanvasBody(vm, onMade)
+}
+
+@Composable
+private fun CustomCanvasBody(vm: CanvasViewModel, onMade: () -> Unit) {
     val start = remember { vm.editingPreset?.let { vm.canvasPresets.getOrNull(it) } ?: CanvasPreset("Untitled Canvas", "px", 1080f, 1080f, 300f) }
     var section by remember { mutableIntStateOf(0) }
     var name by remember { mutableStateOf(start.name) }
@@ -156,8 +169,32 @@ fun CustomCanvasScreen(vm: CanvasViewModel, onMade: () -> Unit) {
     }
     BackHandler { vm.closeCustomCanvas() }
     BoxWithConstraints(Modifier.fillMaxSize().background(ScreenFill).pointerInput(Unit) { detectTapGestures { } }) {
+        // on a phone the sections are a rail of round icons down the left edge, the page beside it
+        val pocket = Pc.pocket
+        val contentStart = if (pocket) 96.dp else 372.dp
+        val contentEnd = if (pocket) 16.dp else 32.dp
+        val contentTop = if (pocket) 132.dp else 120.dp
+        if (pocket) {
+            Column(
+                Modifier.padding(start = 8.dp, top = 10.dp, bottom = 10.dp).width(74.dp).fillMaxHeight().clip(RoundedCornerShape(26.dp)).background(PanelFill).padding(top = 14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Sections.forEachIndexed { i, s ->
+                    val chosen = i == section
+                    Box(
+                        Modifier.padding(bottom = 12.dp).size(58.dp, 54.dp).clip(RoundedCornerShape(27.dp)).background(if (chosen) Pc.Accent else Color.Transparent).clickable {
+                            commit()
+                            section = i
+                        },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(s.icon, contentDescription = s.label, tint = if (chosen) Color.White else IdleInk, modifier = Modifier.requiredSize(s.size * 0.72f))
+                    }
+                }
+            }
+        }
         // the sections
-        Column(Modifier.padding(start = 10.dp, top = 10.dp, bottom = 10.dp).width(319.dp).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(PanelFill)) {
+        if (!pocket) Column(Modifier.padding(start = 10.dp, top = 10.dp, bottom = 10.dp).width(319.dp).fillMaxHeight().clip(RoundedCornerShape(20.dp)).background(PanelFill)) {
             Text("Custom Canvas", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 17.dp))
             Sections.forEachIndexed { i, s ->
                 val chosen = i == section
@@ -172,38 +209,56 @@ fun CustomCanvasScreen(vm: CanvasViewModel, onMade: () -> Unit) {
                     Box(Modifier.width(38.dp), contentAlignment = Alignment.Center) {
                         Icon(s.icon, contentDescription = null, tint = if (chosen) Color.White else IdleInk, modifier = Modifier.requiredSize(s.size))
                     }
-                    Text(s.label, color = if (chosen) Color.White else IdleInk, fontSize = 15.sp, modifier = Modifier.padding(start = 7.dp))
+                    Text(s.label, color = if (chosen) Color.White else IdleInk, fontSize = RowText, modifier = Modifier.padding(start = 7.dp))
                 }
             }
         }
         // the name, Cancel and Done
         // on a wide screen centred over the page, upright from its left
-        val wide = maxWidth > maxHeight
+        val wide = !pocket && maxWidth > maxHeight
         BasicTextField(
             name, { name = it.take(64) }, singleLine = true,
             textStyle = TextStyle(
                 color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                textAlign = if (wide) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
+                textAlign = if (wide || pocket) androidx.compose.ui.text.style.TextAlign.Center else androidx.compose.ui.text.style.TextAlign.Start,
             ),
             cursorBrush = SolidColor(Pc.Accent),
-            modifier = if (wide) {
+            modifier = if (pocket) {
+                Modifier.padding(start = contentStart, end = contentEnd).offset(y = 82.dp).fillMaxWidth()
+            } else if (wide) {
                 Modifier.padding(start = 372.dp, end = 32.dp).offset(y = 28.dp).fillMaxWidth()
             } else {
                 Modifier.offset(x = 394.dp, y = 28.dp).width(maxWidth - 394.dp - 160.dp)
             },
         )
-        Row(Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.align(Alignment.TopEnd).padding(top = if (pocket) 14.dp else 20.dp, end = if (pocket) 14.dp else 20.dp), verticalAlignment = Alignment.CenterVertically) {
             // Cancel, and Import beside it on the colour profile page
-            Row(Modifier.height(43.dp).clip(CircleShape).background(CapsuleFill).border(1.dp, CapsuleEdge, CircleShape), verticalAlignment = Alignment.CenterVertically) {
+            if (pocket) {
+                if (section == 1) {
+                    Row(Modifier.height(50.dp).clip(CircleShape).background(CapsuleFill).border(1.dp, CapsuleEdge, CircleShape), verticalAlignment = Alignment.CenterVertically) {
+                        CapsuleText("Import") { importer.launch(arrayOf("*/*")) }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
+                // Cancel: a round button with a cross
+                Box(
+                    Modifier.size(50.dp).clip(CircleShape).background(CapsuleFill).border(1.dp, CapsuleEdge, CircleShape).clickable { vm.closeCustomCanvas() }.drawBehind {
+                        val a = 8.dp.toPx()
+                        val w = 2.4.dp.toPx()
+                        drawLine(Ink, Offset(center.x - a, center.y - a), Offset(center.x + a, center.y + a), w, StrokeCap.Round)
+                        drawLine(Ink, Offset(center.x - a, center.y + a), Offset(center.x + a, center.y - a), w, StrokeCap.Round)
+                    },
+                )
+            } else Row(Modifier.height(43.dp).clip(CircleShape).background(CapsuleFill).border(1.dp, CapsuleEdge, CircleShape), verticalAlignment = Alignment.CenterVertically) {
                 CapsuleText("Cancel") { vm.closeCustomCanvas() }
                 if (section == 1) CapsuleText("Import") { importer.launch(arrayOf("*/*")) }
             }
-            Spacer(Modifier.width(13.dp))
-            Box(Modifier.size(44.dp, 45.dp).clip(CircleShape).background(DoneBlue).clickable { create() }, contentAlignment = Alignment.Center) {
+            Spacer(Modifier.width(if (pocket) 10.dp else 13.dp))
+            Box(Modifier.size(if (pocket) 50.dp else 44.dp, if (pocket) 50.dp else 45.dp).clip(CircleShape).background(DoneBlue).clickable { create() }, contentAlignment = Alignment.Center) {
                 Icon(PcIcons.DoneTick, contentDescription = "Create", tint = Color.White, modifier = Modifier.requiredSize(40.dp))
             }
         }
-        Column(Modifier.padding(start = 372.dp, end = 32.dp, top = 120.dp)) {
+        Column(Modifier.padding(start = contentStart, end = contentEnd, top = contentTop)) {
             when (section) {
                 0 -> {
                     Group {
@@ -250,10 +305,10 @@ fun CustomCanvasScreen(vm: CanvasViewModel, onMade: () -> Unit) {
                 else -> {
                     Group {
                         Row(
-                            Modifier.fillMaxWidth().height(47.dp).clickable { picking = true }.padding(horizontal = 16.dp),
+                            Modifier.fillMaxWidth().height(RowHeight).clickable { picking = true }.padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Background color", color = Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                            Text("Background color", color = Ink, fontSize = RowText, modifier = Modifier.weight(1f))
                             Box(Modifier.size(24.dp).clip(CircleShape).background(Color(0xFF000000 or background.toLong())).border(1.dp, Color(0xFF555555), CircleShape))
                         }
                     }
@@ -321,7 +376,7 @@ private fun KindSwitch(cmyk: Boolean, onChange: (Boolean) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(if (i == 0) PcIcons.ProfileRgb else PcIcons.ProfileCmyk, contentDescription = null, tint = ink, modifier = Modifier.size(20.dp))
-                Text(label, color = ink, fontSize = 15.sp, modifier = Modifier.padding(start = 8.dp))
+                Text(label, color = ink, fontSize = RowText, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
@@ -339,29 +394,29 @@ private fun Line() {
 
 @Composable
 private fun SizeRow(label: String, value: String, unit: String, editing: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(47.dp).clickable(onClick = onClick).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        Text(value, color = if (editing) Editing else Ink, fontSize = 15.sp)
-        if (unit.isNotEmpty()) Text(" $unit", color = Ink, fontSize = 15.sp)
+    Row(Modifier.fillMaxWidth().height(RowHeight).clickable(onClick = onClick).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Ink, fontSize = RowText, modifier = Modifier.weight(1f))
+        Text(value, color = if (editing) Editing else Ink, fontSize = RowText)
+        if (unit.isNotEmpty()) Text(" $unit", color = Ink, fontSize = RowText)
     }
 }
 
 @Composable
 private fun ChoiceRow(label: String, chosen: Boolean, detail: String? = null, tick: Boolean = false, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().height(47.dp).background(if (chosen) Pc.Accent else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().height(RowHeight).background(if (chosen) Pc.Accent else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = if (chosen) Color.White else Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        if (detail != null) Text(detail, color = if (chosen) Color.White else Ink, fontSize = 15.sp)
+        Text(label, color = if (chosen) Color.White else Ink, fontSize = RowText, modifier = Modifier.weight(1f))
+        if (detail != null) Text(detail, color = if (chosen) Color.White else Ink, fontSize = RowText)
         if (tick && chosen) Icon(PcIcons.MenuTick, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
     }
 }
 
 @Composable
 private fun SwitchLine(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().height(47.dp).clickable { onChange(!on) }.padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = Ink, fontSize = 15.sp, modifier = Modifier.weight(1f))
+    Row(Modifier.fillMaxWidth().height(RowHeight).clickable { onChange(!on) }.padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = Ink, fontSize = RowText, modifier = Modifier.weight(1f))
         Switch(on, enabled = true)
     }
 }
@@ -374,6 +429,10 @@ private fun SwitchLine(label: String, on: Boolean, onChange: (Boolean) -> Unit) 
  */
 @Composable
 private fun Keypad(modifier: Modifier, wide: Boolean, room: Dp, unit: SizeUnit, onUnit: (SizeUnit) -> Unit, onKey: (String) -> Unit, onNext: () -> Unit, onDone: () -> Unit) {
+    if (Pc.pocket) {
+        PocketKeypad(modifier, unit, onUnit, onKey, onNext, onDone)
+        return
+    }
     val full = if (wide) 457.dp else 342.dp
     val fit = (room / full).coerceIn(0.5f, 1f)
     val w = if (wide) 150.dp else 120.dp
@@ -412,5 +471,39 @@ private fun Keypad(modifier: Modifier, wide: Boolean, room: Dp, unit: SizeUnit, 
 private fun Key(label: String, fill: Color, ink: Color, size: androidx.compose.ui.unit.TextUnit, width: Dp, height: Dp, onClick: () -> Unit) {
     Box(Modifier.size(width, height).clip(RoundedCornerShape(8.dp)).background(fill).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Text(label, color = ink, fontSize = size)
+    }
+}
+
+/**
+ * The phone's keypad, along the bottom with rounded top corners: five columns share the screen's
+ * width, the units (MM CM IN PX), three of digits, and Delete, Next and Done.
+ */
+@Composable
+private fun PocketKeypad(modifier: Modifier, unit: SizeUnit, onUnit: (SizeUnit) -> Unit, onKey: (String) -> Unit, onNext: () -> Unit, onDone: () -> Unit) {
+    val gap = 8.dp
+    BoxWithConstraints(modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).background(KeypadFill).padding(horizontal = 14.dp, vertical = 14.dp)) {
+        val w = (maxWidth - gap * 4) / 5
+        val h = 58.dp
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                for (u in SizeUnit.entries) {
+                    Key(u.key.uppercase(), if (u == unit) UnitChosen else KeyFill, if (u != unit) Ink else if (Pc.light) Color.White else Color(0xFF1F1F1F), 16.sp, w, h) { onUnit(u) }
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                for (row in listOf(listOf("7", "8", "9"), listOf("4", "5", "6"), listOf("1", "2", "3"))) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) { for (k in row) Key(k, DigitFill, Ink, 26.sp, w, h) { onKey(k) } }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    Key("0", DigitFill, Ink, 26.sp, w * 2 + gap, h) { onKey("0") }
+                    Key(".", DigitFill, Ink, 26.sp, w, h) { onKey(".") }
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                Key("Del", KeyFill, Ink, 16.sp, w, h) { onKey("⌫") }
+                Key("Next", KeyFill, Ink, 16.sp, w, h) { onNext() }
+                Key("Done", KeyFill, Ink, 16.sp, w, h * 2 + gap) { onDone() }
+            }
+        }
     }
 }

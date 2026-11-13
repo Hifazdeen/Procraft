@@ -539,7 +539,11 @@ private fun GalleryScreenBody(vm: CanvasViewModel) {
         // on a phone it is a sheet above the floating bar, as wide as the screen allows
         val newWidth = (maxWidth - 16.dp).coerceAtMost(NewCanvasWidth)
         val newAt = if (Pc.pocket) {
-            Modifier.offset(x = (maxWidth - newWidth) / 2, y = (maxHeight - 620.dp).coerceAtLeast(6.dp))
+            // the list's height: the title, the screen's size, the presets (scrolling past 376) and the foot
+            Modifier.offset(
+                x = (maxWidth - newWidth) / 2,
+                y = (maxHeight - (150.5.dp + (vm.canvasPresets.size * 44.2f).dp.coerceAtMost(376.dp)) - 14.dp).coerceAtLeast(6.dp),
+            )
         } else {
             Modifier.offset(x = newLeft, y = 56.5.dp)
         }
@@ -1581,6 +1585,10 @@ private fun NewCanvasPanel(
     var opened by remember { mutableStateOf<Int?>(null) }
     Popover(NewCanvasWidth, arrowX, modifier, fill = Pc.LightPanel, corner = 32.dp) {
         Box(Modifier.fillMaxWidth()) {
+            // as a phone's sheet it has a grabber over its title
+            if (LocalSheet.current != null) {
+                Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).size(40.dp, 4.dp).clip(CircleShape).background(Pc.Grabber))
+            }
             Text(
                 "New canvas",
                 color = Pc.LightText,
@@ -1633,9 +1641,9 @@ private fun NewCanvasPanel(
 
 // A swiped preset row: how far it slides, and the two buttons it shows
 private val SwipeReveal = 159.dp
-private val SwipeBehind = Color(0xFFD6D6D6)
-private val EditFill = Color(0xFFC6C6C6)
-private val EditInk = Color(0xFF575757)
+private val SwipeBehind get() = if (Pc.light) Color(0xFFD6D6D6) else Color(0xFF2B2B2B)
+private val EditFill get() = if (Pc.light) Color(0xFFC6C6C6) else Color(0xFF4A4A4A)
+private val EditInk get() = if (Pc.light) Color(0xFF575757) else Color(0xFFE0E0E0)
 private val DeleteFill = Color(0xFFFE604D)
 
 /** A preset row that slides left under a finger to show Edit and Delete; a tap picks it (or closes it, open). */

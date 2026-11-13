@@ -142,12 +142,13 @@ object Pc {
     val GallerySize: Color get() = pick(0xFF666666, 0xFF6A6A6A)
     val Capsule: Color get() = pick(0xFF1C1C1C, 0xF0F7F7F7)
     val CapsuleEdge: Color get() = pick(0xFF393939, 0x0F000000)
-    val LightPanel = Color(0xFFD5D5D5)
-    val LightText = Color(0xFF393939)
-    val LightRowStrong = Color(0xFFE1E1E1)
-    val LightRow = Color(0xFFDEDEDE)
-    val LightSeparator = Color(0xFFD2D2D2)
-    val LightChip = Color(0xFFD6D6D6)
+    // the panels that were always light (New canvas...) now follow the interface's theme
+    val LightPanel: Color get() = pick(0xFF2B2B2B, 0xFFD5D5D5)
+    val LightText: Color get() = pick(0xFFE6E6E6, 0xFF393939)
+    val LightRowStrong: Color get() = pick(0xFF3B3B3B, 0xFFE1E1E1)
+    val LightRow: Color get() = pick(0xFF343434, 0xFFDEDEDE)
+    val LightSeparator: Color get() = pick(0xFF2B2B2B, 0xFFD2D2D2)
+    val LightChip: Color get() = pick(0xFF454545, 0xFFD6D6D6)
 
     // the side bar
     // the bar and the tracks translucent, each straight over what is behind (#2d2d2d and #676767

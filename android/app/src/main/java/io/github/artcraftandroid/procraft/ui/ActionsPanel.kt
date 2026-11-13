@@ -559,11 +559,81 @@ private fun ChoiceGroup(choices: List<String>, chosen: Int, onPick: (Int) -> Uni
 /** Rows in a rounded group, a line between them (not between sliders). */
 @Composable
 private fun Group(rows: List<ActionRow>) {
+    // as a phone's card the buttons are tiles, two across
+    if (LocalSheet.current != null) {
+        PocketGroup(rows)
+        return
+    }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Pc.ActionsGroup)) {
         rows.forEachIndexed { i, row ->
             if (i > 0 && !(row is Slide && rows[i - 1] is Slide)) Box(Modifier.fillMaxWidth().height(1.dp).background(Pc.ActionsSeparator))
             if (row is Slide) SlideRow(row) else ActionRowView(row)
         }
+    }
+}
+
+/**
+ * The phone's card: runs of plain buttons are rounded tiles two across; a switch, a slider or a
+ * button with a swipe keeps its own row in a rounded group.
+ */
+@Composable
+private fun PocketGroup(rows: List<ActionRow>) {
+    val blocks = ArrayList<List<ActionRow>>()
+    var i = 0
+    while (i < rows.size) {
+        val r = rows[i]
+        if (r is Act && r.private == null) {
+            val run = ArrayList<ActionRow>()
+            while (i < rows.size) {
+                val n = rows[i]
+                if (n is Act && n.private == null) {
+                    run.add(n)
+                    i++
+                } else {
+                    break
+                }
+            }
+            blocks.add(run)
+        } else {
+            blocks.add(listOf(r))
+            i++
+        }
+    }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+        for (block in blocks) {
+            val first = block.first()
+            if (first is Act && first.private == null) {
+                for (pair in block.chunked(2)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                        for (tile in pair) if (tile is Act) ActionTile(tile, Modifier.weight(1f))
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            } else {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Pc.ActionsGroup)) {
+                    if (first is Slide) SlideRow(first) else ActionRowView(first)
+                }
+            }
+        }
+    }
+}
+
+/** A button as a tile: its name, and its value under it; blue while held. */
+@Composable
+private fun ActionTile(row: Act, modifier: Modifier) {
+    val enabled = row.onClick != null
+    val touch = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val lit = animateHighlight(heldOf(touch))
+    val ink = androidx.compose.ui.graphics.lerp(if (enabled) Pc.ActionsRow else Pc.ActionsDisabled, Color.White, lit)
+    Column(
+        modifier.height(62.dp).clip(RoundedCornerShape(18.dp))
+            .background(androidx.compose.ui.graphics.lerp(Pc.ActionsGroup, Pc.Accent, lit))
+            .then(if (row.onClick != null) Modifier.clickable(touch, indication = null, onClick = row.onClick) else Modifier)
+            .padding(horizontal = 14.dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+    ) {
+        Text(row.label, color = ink, fontSize = 16.sp, maxLines = 2, lineHeight = 19.sp)
+        row.value?.let { Text(it, color = androidx.compose.ui.graphics.lerp(Pc.TabIdle, Color.White, lit), fontSize = 13.sp, maxLines = 1) }
     }
 }
 
