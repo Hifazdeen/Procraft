@@ -225,8 +225,11 @@ fun ColorPanel(vm: CanvasViewModel, arrowX: Dp, screenHeight: Dp, modifier: Modi
                     Box(swatch.background(rgbColor(vm.secondaryRgb)).clickable { vm.swapColors() })
                 }
             }
-            Box(Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(40.dp, 4.dp).clip(CircleShape).background(Pc.Grabber))
-            if (!background) UndockHandle(vm, Modifier.align(Alignment.TopCenter))
+            // as a phone's sheet it has the sheet's grabber (expand, condense, close) instead of this one that floats it
+            if (LocalSheet.current == null) {
+                Box(Modifier.align(Alignment.TopCenter).padding(top = 4.dp).size(40.dp, 4.dp).clip(CircleShape).background(Pc.Grabber))
+                if (!background) UndockHandle(vm, Modifier.align(Alignment.TopCenter))
+            }
             if (vm.colorMode == ColorMode.HARMONY) HarmonyKindButton(vm)
         }
         // the other modes come one by one; until then they show the classic picker

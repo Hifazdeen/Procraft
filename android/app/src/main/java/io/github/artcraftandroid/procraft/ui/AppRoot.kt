@@ -91,7 +91,8 @@ fun AppRoot(vm: CanvasViewModel) {
                 GuideOverlay(vm)
                 if (vm.transforming) TransformOverlay(vm)
                 if (vm.selecting) SelectionOverlay(vm, Pc.BarHeight)
-                if (vm.panel != Panel.NONE) {
+                // (on a phone drawing closes a panel instead: see CanvasSurfaceView)
+                if (vm.panel != Panel.NONE && !Pc.pocket) {
                     // a tap outside an open panel closes it (and does not paint)
                     Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { vm.tapOutsidePanel() } })
                 }
@@ -197,11 +198,12 @@ fun AppRoot(vm: CanvasViewModel) {
                         at
                     }
                     val arrow = if (sheet) 0.dp else place.arrowX
-                    val screenHeight = if (sheet) maxHeight * k else maxHeight
-                    // a sheet's stop (small, ordinary, tall) is kept while it stays open
-                    val stop = androidx.compose.runtime.remember(shown) { androidx.compose.runtime.mutableIntStateOf(1) }
+                    // a sheet opens condensed, and is expanded by its grabber; that is kept while it stays open
+                    val stop = androidx.compose.runtime.remember(shown) { androidx.compose.runtime.mutableIntStateOf(0) }
                     val roomTarget = if (sheet) maxHeight * k * SheetStops[stop.intValue] else maxHeight - Pc.BarHeight - 25.dp
                     val room = androidx.compose.animation.core.animateDpAsState(targetValue = roomTarget).value
+                    // the colour panel is its condensed view as it opens, and expanded (with its history) dragged up
+                    val screenHeight = if (sheet) (if (stop.intValue == 0) 640.dp else 1000.dp) else maxHeight
                     val layersRoom = if (sheet) room else maxHeight - Pc.BarHeight - Pc.PopoverGap
                     val body: @Composable () -> Unit = {
                         when (shown) {

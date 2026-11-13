@@ -19,12 +19,13 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** How tall a bottom sheet is, as a share of the screen, for each of its stops: small, ordinary, tall. */
-val SheetStops = floatArrayOf(0.42f, 0.74f, 0.92f)
+/** How tall a bottom sheet is, as a share of the screen, for each of its stops: condensed (as it opens) and expanded. */
+val SheetStops = floatArrayOf(0.58f, 0.92f)
 
 /**
- * The grabber over a bottom sheet (Procraft Pocket's swipe card): dragged up it stretches the
- * sheet to its next stop, dragged down it shrinks it, and dragged down from the smallest it closes it.
+ * The grabber over a bottom sheet (Procraft Pocket's swipe card, as the Pocket handbook describes it):
+ * dragged up it expands the sheet, dragged down a little it condenses it again, and dragged well
+ * down it closes it.
  */
 @Composable
 fun SheetHandle(stop: Int, onStop: (Int) -> Unit, onClose: () -> Unit, width: Dp, modifier: Modifier = Modifier) {
@@ -43,7 +44,8 @@ fun SheetHandle(stop: Int, onStop: (Int) -> Unit, onClose: () -> Unit, width: Dp
                         onStop(now + 1)
                     } else if (total > step) {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        if (now > 0) onStop(now - 1) else onClose()
+                        // from the expanded view a short drag condenses it, a long one closes it
+                        if (now > 0 && total < 4 * step) onStop(now - 1) else onClose()
                     }
                 },
                 onDragCancel = {},

@@ -259,6 +259,8 @@ class CanvasSurfaceView(context: Context, private val vm: CanvasViewModel) : Sur
                 return true
             }
             skipping = false
+            // on a phone the card (Colors, Layers...) is dismissed as drawing begins
+            if (io.github.artcraftandroid.procraft.ui.Pc.pocket && vm.panel != Panel.NONE) vm.tapOutsidePanel()
             // a touch on the canvas closes an adjustment's menu, its Layer / Pencil choice and liquify's popups
             closedAdjustMenu = vm.adjustMenuAt != null
             if (vm.adjustment != null) {
