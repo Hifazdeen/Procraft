@@ -500,7 +500,7 @@ fun BrushStudio(vm: CanvasViewModel) {
         vm.studioOpen,
         enter = androidx.compose.animation.slideInVertically(Motion.studioIn()) { it },
         exit = androidx.compose.animation.slideOutVertically(Motion.studioOut()) { it },
-    ) { Studio(vm) }
+    ) { if (Pc.pocket) Unscaled { Studio(vm) } else Studio(vm) }
 }
 
 @Composable
@@ -519,9 +519,10 @@ private fun Studio(vm: CanvasViewModel) {
             Row(Modifier.fillMaxSize()) {
                 StudioRail(vm)
                 Column(Modifier.fillMaxSize()) {
-                    StudioPad(vm, Modifier.fillMaxWidth().height(PadHeight))
+                    // on a phone the pad and the settings share the height, the pad a little the smaller
+                    StudioPad(vm, if (Pc.pocket) Modifier.fillMaxWidth().weight(0.4f) else Modifier.fillMaxWidth().height(PadHeight))
                     Box(Modifier.fillMaxWidth().height(1.dp).background(StudioLine))
-                    StudioSettings(vm, Modifier.fillMaxSize())
+                    StudioSettings(vm, if (Pc.pocket) Modifier.fillMaxWidth().weight(0.6f) else Modifier.fillMaxSize())
                 }
             }
         }

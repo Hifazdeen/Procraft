@@ -53,6 +53,17 @@ object UiScale {
     /** The preference (in "interface") for the phone layout: absent, it is on where the screen is a phone's. */
     const val POCKET_KEY = "pocket_ui"
 
+    /** The width, in dp, the phone layout is drawn for. */
+    private const val POCKET_WIDTH_DP = 392f
+
+    /**
+     * How much the phone layout shrinks: 1 on a screen 392 dp or more across its shorter side, less on
+     * a narrower one (a phone set to large display sizes, or a low-resolution mode), so its buttons
+     * and rows keep their proportions whatever the density the system reports.
+     */
+    fun pocketScale(context: Context): Float =
+        (context.resources.configuration.smallestScreenWidthDp / POCKET_WIDTH_DP).coerceIn(0.55f, 1f)
+
     /** Whether the screen is a phone's: under 600 dp across its shorter side. */
     fun pocketDefault(context: Context): Boolean = context.resources.configuration.smallestScreenWidthDp < 600
 
@@ -69,6 +80,7 @@ object UiScale {
 fun Unscaled(content: @Composable () -> Unit) {
     val scaled = LocalDensity.current
     val scale = Pc.uiScale
-    val system = remember(scaled.density, scale) { Density(scaled.density / scale, 1f) }
+    val pocket = Pc.pocketScale
+    val system = remember(scaled.density, scale, pocket) { Density(scaled.density / scale * pocket, 1f) }
     CompositionLocalProvider(LocalDensity provides system, content = content)
 }

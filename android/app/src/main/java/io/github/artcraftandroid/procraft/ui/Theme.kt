@@ -19,6 +19,9 @@ object Pc {
     /** The phone layout (Procraft Pocket) is on: see [UiScale.pocket]. */
     var pocket by mutableStateOf(false)
 
+    /** How much the phone layout shrinks on a screen narrower than the 392 dp it is drawn for (see [UiScale.pocketScale]). */
+    var pocketScale by mutableFloatStateOf(1f)
+
     /** The phone top bar's height, in the system's dp (it is drawn unscaled: see [Unscaled]). */
     val PocketBarHeight = 56.dp
 
@@ -46,7 +49,7 @@ object Pc {
     val ActionGlyph: Color get() = pick(0xFF969696, 0xFF646464)
     val ColorRing: Color get() = pick(0xFF969696, 0xFF696969)
     /** The top bar's height in the interface's dp: the pocket bar is drawn in the system's, so it is shorter in these. */
-    val BarHeight: Dp get() = if (pocket) PocketBarHeight / uiScale else 44.dp
+    val BarHeight: Dp get() = if (pocket) PocketBarHeight * pocketScale / uiScale else 44.dp
     val BarMargin = 40.dp
     val BarButtonWidth = 44.dp
     val BarButtonHeight = 38.dp

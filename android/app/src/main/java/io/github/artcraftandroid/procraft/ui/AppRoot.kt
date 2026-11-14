@@ -144,15 +144,34 @@ fun AppRoot(vm: CanvasViewModel) {
                         TopBar(vm, Modifier.align(Alignment.TopCenter).then(up).then(fade))
                     }
                     // a mode taking the screen slides it off its edge, and back when it ends
+                    // on a phone the side bar is drawn in the system's dp, shrunk where the screen is not tall enough for it
+                    val pocketRatio = Pc.uiScale / Pc.pocketScale
+                    val barFit = if (Pc.pocket) minOf(1f, maxHeight.value * pocketRatio * 0.92f / Pc.SideBarHeight.value) else 1f
+                    val barPx = Pc.SideBarHeight.value * barFit * androidx.compose.ui.platform.LocalDensity.current.density / pocketRatio
                     androidx.compose.animation.AnimatedVisibility(
                         vm.showSideBar && !vm.transforming && !vm.selecting && !vm.guideEditing && !vm.lightingStudioOpen && vm.cropRect == null && vm.textInfo == null &&
                             vm.opacityLayer == null &&
                             (vm.adjustment == null || vm.adjustPencil),
-                        Modifier.align(if (vm.rightHanded) Alignment.TopEnd else Alignment.TopStart).offset(y = maxHeight * Pc.SIDE_BAR_CENTRE - Pc.SideBarHeight / 2),
+                        Modifier.align(if (vm.rightHanded) Alignment.TopEnd else Alignment.TopStart).then(
+                            if (Pc.pocket) {
+                                Modifier.offset { androidx.compose.ui.unit.IntOffset(0, (constraints.maxHeight * Pc.SIDE_BAR_CENTRE - barPx / 2f).toInt()) }
+                            } else {
+                                Modifier.offset(y = maxHeight * Pc.SIDE_BAR_CENTRE - Pc.SideBarHeight / 2)
+                            },
+                        ),
                         enter = Motion.sideBarIn(vm.rightHanded),
                         exit = Motion.sideBarOut(vm.rightHanded),
                     ) {
-                        SideBar(vm, aside.then(fade), right = vm.rightHanded)
+                        if (Pc.pocket) {
+                            Unscaled {
+                                val d = androidx.compose.ui.platform.LocalDensity.current
+                                CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density * barFit, 1f)) {
+                                    SideBar(vm, aside.then(fade), right = vm.rightHanded)
+                                }
+                            }
+                        } else {
+                            SideBar(vm, aside.then(fade), right = vm.rightHanded)
+                        }
                     }
                 }
                 NoticeBand(vm)
@@ -188,7 +207,7 @@ fun AppRoot(vm: CanvasViewModel) {
                     }
                     // on a phone the panels are sheets rising from the bottom edge, in the system's dp
                     val sheet = Pc.pocket
-                    val k = Pc.uiScale
+                    val k = Pc.uiScale / Pc.pocketScale
                     val panelAt = if (sheet) {
                         Modifier.graphicsLayer {
                             this.alpha = alpha

@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -258,7 +260,12 @@ private fun CustomCanvasBody(vm: CanvasViewModel, onMade: () -> Unit) {
                 Icon(PcIcons.DoneTick, contentDescription = "Create", tint = Color.White, modifier = Modifier.requiredSize(40.dp))
             }
         }
-        Column(Modifier.padding(start = contentStart, end = contentEnd, top = contentTop)) {
+        // on a phone the page scrolls, clear of the keypad while a size is typed
+        val pageScroll = rememberScrollState()
+        Column(
+            Modifier.padding(start = contentStart, end = contentEnd, top = contentTop)
+                .then(if (pocket) Modifier.fillMaxSize().verticalScroll(pageScroll) else Modifier),
+        ) {
             when (section) {
                 0 -> {
                     Group {
@@ -316,6 +323,7 @@ private fun CustomCanvasBody(vm: CanvasViewModel, onMade: () -> Unit) {
                     Group { SwitchLine("Background hidden", hidden) { hidden = it } }
                 }
             }
+            if (pocket) Spacer(Modifier.height(if (section == 0 && field != null) 310.dp else 28.dp))
         }
         // the keypad, while a size is typed
         if (section == 0 && field != null) {

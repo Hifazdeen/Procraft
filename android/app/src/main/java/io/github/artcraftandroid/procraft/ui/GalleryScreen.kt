@@ -1733,7 +1733,7 @@ private fun AboutApp(onClose: () -> Unit) {
                     modifier = Modifier.requiredSize(450.dp),
                 )
             }
-            Text("ProCraft", color = Color.White, fontSize = 64.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 12.dp))
+            Text(if (Pc.pocket) "Procraft Pocket" else "ProCraft", color = Color.White, fontSize = if (Pc.pocket) 44.sp else 64.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.padding(top = 12.dp))
             Text(version, color = AboutInk, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 14.dp))
         }
         Box(

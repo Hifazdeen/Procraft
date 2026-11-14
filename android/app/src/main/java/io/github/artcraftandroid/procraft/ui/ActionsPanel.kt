@@ -625,15 +625,52 @@ private fun ActionTile(row: Act, modifier: Modifier) {
     val touch = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val lit = animateHighlight(heldOf(touch))
     val ink = androidx.compose.ui.graphics.lerp(if (enabled) Pc.ActionsRow else Pc.ActionsDisabled, Color.White, lit)
-    Column(
+    val glyph = tileGlyph(row.label)
+    Row(
         modifier.height(62.dp).clip(RoundedCornerShape(18.dp))
             .background(androidx.compose.ui.graphics.lerp(Pc.ActionsGroup, Pc.Accent, lit))
             .then(if (row.onClick != null) Modifier.clickable(touch, indication = null, onClick = row.onClick) else Modifier)
-            .padding(horizontal = 14.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(row.label, color = ink, fontSize = 16.sp, maxLines = 2, lineHeight = 19.sp)
-        row.value?.let { Text(it, color = androidx.compose.ui.graphics.lerp(Pc.TabIdle, Color.White, lit), fontSize = 13.sp, maxLines = 1) }
+        if (glyph != null) {
+            androidx.compose.material3.Icon(glyph, contentDescription = null, tint = androidx.compose.ui.graphics.lerp(Pc.TabIdle, Color.White, lit), modifier = Modifier.requiredSize(30.dp))
+            Spacer(Modifier.width(10.dp))
+        }
+        Column(Modifier.weight(1f), verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center) {
+            Text(row.label, color = ink, fontSize = 15.sp, maxLines = 2, lineHeight = 18.sp)
+            row.value?.let { Text(it, color = androidx.compose.ui.graphics.lerp(Pc.TabIdle, Color.White, lit), fontSize = 12.sp, maxLines = 1) }
+        }
+    }
+}
+
+/** The glyph a tile wears, by what it does; none for a name that has no good picture. */
+private fun tileGlyph(label: String): androidx.compose.ui.graphics.vector.ImageVector? {
+    val n = label.lowercase()
+    return when {
+        n.startsWith("add text") -> PcIcons.TextLayer
+        n.startsWith("insert a file") -> PcIcons.Page
+        n.startsWith("insert a photo") -> PcIcons.MenuPhoto
+        n.startsWith("take a photo") -> PcIcons.MenuCamera
+        n.startsWith("copy") -> PcIcons.CopyOne
+        n.startsWith("cut") -> PcIcons.CopyCut
+        n.startsWith("paste") -> PcIcons.TextPaste
+        n.startsWith("flip horizontal") -> PcIcons.FlipHorizontal
+        n.startsWith("flip vertical") -> PcIcons.FlipVertical
+        n.startsWith("canvas information") -> PcIcons.InfoAbout
+        n.startsWith("crop") -> PcIcons.FitToCanvas
+        n.contains("drawing guide") -> PcIcons.GuideGrid
+        n.contains("lighting") -> PcIcons.EnvStudio
+        n.contains("time-lapse") || n.startsWith("animated") -> PcIcons.TabVideo
+        n.startsWith("view in ar") -> PcIcons.Tab3D
+        n.startsWith("pressure") -> PcIcons.PenPressure
+        n.startsWith("gesture") -> PcIcons.GestureGeneral
+        n.contains("settings") || n.startsWith("brush scaling") -> PcIcons.TabPrefs
+        n.startsWith("keyboard") -> PcIcons.Keyboard
+        n.startsWith("reset") -> PcIcons.TransformReset
+        n.startsWith("about") || n.startsWith("licences") -> PcIcons.InfoAbout
+        n in setOf("png", "jpeg", "pdf", "psd", "tiff", "obj", "usdz", "png files") -> PcIcons.ShareOut
+        else -> null
     }
 }
 
